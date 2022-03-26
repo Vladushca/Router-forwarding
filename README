@@ -1,0 +1,31 @@
+Datele trimise intre hosturi si routere sunt de tipul packet, declarat la inceput de main.
+A urmat alocarea memoriei pentru tabela de rutare si parsarea ei cu functia parse_rtable (argv[1]), care
+deschide un fisier cu date de tipul prefix next_hop mask interface si citeste din el line by line. Intre
+timp se face completarea structurii rtable cu datele citite in campurile respective prefix next_hop mask interface
+folosind  functia inet_addr.
+Apoi am sortat acest tabel pentru a aplica ulterior, la cautarea best route, binary search.
+Am alocat arp_table si creat o coada.
+
+
+
+In continuare, intr-un ciclu infinit primesc pachete si obtin din ele headerele de ip si ethernet.
+Cu parse_arp am obtinut headerul arp.
+Am setat adresele ip si mac pentru intrarea din arp table.
+In caz de arp request destinat routerului, inversez adresele mack si retrimit packetul.
+In caz de arp reply caut in coada packetul pe care trebuie sa il trimit.
+
+Verific check-sumul, daca e gresit, arunc pachetul.
+In cazul in care un icmp este adresat routerului, trimit un reply cu send_icmp din skelet, interschimand in 
+lista de argumente adresele sursa si destinatie primite din packet, indic adresele mac sursa si destinatie,
+type-ul si codul, unde typeul in cazul dat e 0 - echo reply.
+Verific ttl. Daca e <= 1, instiintez sursa cu un Time exceeded - type 11.
+Apoi caut binar in tabela de rutare ruta cea mai buna, cu functia get_best_route peste ip-ul destinatie din 
+packetul primit, care imi returneaza adresa liniei cu best-route din route table. 
+Daca nu se gaseste, trimit Destination unreachable - type 3 iarasi cu send_icmp_error.
+In caz contrar, adica daca este best route pentru packetul primit, decrementez ttl si recalculez check-sumul.
+Urmeaza modificarea adreselor mac sursa si destinatie in headerul ethernet, si anume, folosind get_interface_mac
+preiau adresa mac a interfetei best-route si o setez drept mac adrees sursa.
+Aplic get_arp_entry peste adresa ip a next-hopului pentru a afla adresa mac asociata, pe care o setez drept 
+adresa mac a destinatiei. In cazul in care nu se gaseste next_hop, fac un request in retea pentru a "afla" unde 
+se afla (0xffffffffffff).
+Transmit packetul cu send_packet mai departe catre best-route.
